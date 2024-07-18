@@ -72,6 +72,7 @@ typedef struct Entity {
 	bool is_valid;
 	EntityArchetype arch;
 	Vector2 pos;
+	Vector2 size;
 	bool render_sprite;
 	SpriteID sprite_id;
 	int health;
@@ -110,11 +111,14 @@ void entity_destroy(Entity* entity) {
 void setup_player(Entity* en) {
 	en->arch = arch_player;
 	en->sprite_id = SPRITE_player;
+	en->size = get_sprite_size(get_sprite(en->sprite_id));
+	en->pos = v2(0, 0);
 }
 
 void setup_rock(Entity* en) {
 	en->arch = arch_rock;
 	en->sprite_id = SPRITE_rock0;
+	en->size = get_sprite_size(get_sprite(en->sprite_id));
 	// en->health = rock_health;
 	// en->destroyable_world_item = true;
 }
@@ -139,6 +143,17 @@ Vector2 screen_to_world() {
 
 	// Return as 2D vector
 	return (Vector2){ world_pos.x, world_pos.y };
+}
+
+bool check_collision(Entity* en1, Vector2 en2_next_position , Vector2 en2_size) {
+    // Check if box1's left edge is to the left of box2's right edge
+    // AND box1's right edge is to the right of box2's left edge
+    // AND box1's top edge is above box2's bottom edge
+    // AND box1's bottom edge is below box2's top edge
+    return (en1->pos.x < en2_next_position.x + en2_size.x &&
+            en1->pos.x + en2_size.x > en2_next_position.x &&
+            en1->pos.y < en2_next_position.y + en2_size.y &&
+            en1->pos.y + en1->size.y > en2_next_position.y);
 }
 
 int entry(int argc, char **argv) {
@@ -166,13 +181,15 @@ int entry(int argc, char **argv) {
 		// en->pos = round_v2_to_tile(en->pos);
 		// en->pos.y -= tile_width * 0.5;
 	}
+
+
 	
-	Vector2 player_pos = v2(0, 0);
 	float64 seconds_counter = 0.0;
 	s32 frame_count = 0;
 	float64 last_time = os_get_current_time_in_seconds();
 	float zoom = 5.3;
 	Vector2 camera_pos = v2(0, 0);
+		int coso = 0; //TODO: volar al choto
 
 	while (!window.should_close) {
 		reset_temporary_storage();
@@ -194,7 +211,7 @@ int entry(int argc, char **argv) {
 		}
 
 		// :Render
-				for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+		for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
 			Entity* en = &world->entities[i];
 			if (en->is_valid) {
 
@@ -226,12 +243,6 @@ int entry(int argc, char **argv) {
 				}
 			}
 		}
-		// Sprite* sprite = get_sprite(player_en->sprite_id);
-
-		// Matrix4 xform = m4_scalar(1.0);
-		// xform         = m4_translate(xform, v3(player_en->pos.x, player_en->pos.y, 0));
-		// draw_image_xform(sprite->image, xform, get_sprite_size(sprite), COLOR_WHITE);
-
 
 		// Movement
 
@@ -239,7 +250,7 @@ int entry(int argc, char **argv) {
 			window.should_close = true;
 		}
 
-		Vector2 input_axis = v2(0, 0);
+		Vector2 input_axis = v2(0.0, 0.0);
 		if (is_key_down('A')) {
 			input_axis.x -= 1.0;
 		}
@@ -253,13 +264,25 @@ int entry(int argc, char **argv) {
 			input_axis.y += 1.0;
 		}
 		input_axis = v2_normalize(input_axis);
+		Vector2 next_position = v2_add(player_en->pos, v2_mulf(input_axis, 100.0 * delta_t));
 
-		player_en->pos = v2_add(player_en->pos, v2_mulf(input_axis, 100.0 * delta_t));
+		// Check collision
 
-		// Debug movement
-		// if (player_en->pos.x > 0.0 || player_en->pos.y > 0.0) {
-		// 	printf("the fucker is moving\n");
-		// }
+		for (int i = 0; i < MAX_ENTITY_COUNT; i++) {
+			Entity* en = &world->entities[i];
+			switch (en->arch) {
+				case arch_rock:
+					if (check_collision(en, next_position, player_en->size)) {
+						next_position = player_en->pos;
+					}
+					break;
+
+				default:
+					break;
+			}
+		}
+
+		player_en->pos = next_position;
 
 		os_update(); 
 		gfx_update();

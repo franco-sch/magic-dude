@@ -3,6 +3,8 @@
   "files.associations": {
     "xutility": "c",
     "type_traits": "c",
-    "xtr1common": "c"
+    "xtr1common": "c",
+    "initializer_list": "c",
+    "utility": "c"
   }
 }
